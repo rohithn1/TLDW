@@ -46,21 +46,18 @@ const INNERTUBE_API_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
  * Uses YouTube's InnerTube API with an Android client context to obtain
  * caption track URLs, then fetches and parses the XML captions.
  *
- * Approach adapted from jdepoix/youtube-transcript-api and
- * danielxceron/youtube-transcript.
+ * The Android client does not require a Proof of Origin (PO) token.
+ * Chrome extensions must use declarativeNetRequest (see rules.json) to
+ * set the Origin header to youtube.com, since Chrome overrides it with
+ * the extension origin which YouTube rejects.
  */
 export async function fetchTranscript(videoId: string): Promise<TranscriptEntry[]> {
-  // Use InnerTube player API with Android client to get caption tracks.
-  // The Android client does not require a PO (Proof of Origin) token,
-  // unlike the WEB client which returns empty timedtext responses.
   const playerResponse = await fetch(
     `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_API_KEY}`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Origin: "https://www.youtube.com",
-        Referer: `https://www.youtube.com/watch?v=${videoId}`,
         "User-Agent":
           "com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip",
       },
