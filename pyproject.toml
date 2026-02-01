@@ -1,0 +1,16 @@
+[project]
+name = "tldw"
+version = "0.1.0"
+description = "TL;DW - Too Long; Didn't Watch. Summarize YouTube videos from the command line."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=0.77.0",
+    "click>=8.3.1",
+    "openai>=2.16.0",
+    "rich>=14.3.1",
+    "youtube-transcript-api>=1.2.4",
+]
+
+[project.scripts]
+tldw = "tldw.cli:main"
