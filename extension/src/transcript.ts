@@ -36,101 +36,95 @@ export function isYouTubeUrl(url: string): boolean {
 }
 
 /**
- * Fetch the transcript for a YouTube video by scraping the watch page
- * and parsing the captions track data.
+ * Default InnerTube API key (public, embedded in every YouTube page).
+ */
+const INNERTUBE_API_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+
+/**
+ * Fetch the transcript for a YouTube video.
+ *
+ * Uses YouTube's InnerTube API with an Android client context to obtain
+ * caption track URLs, then fetches and parses the XML captions.
+ *
+ * Approach adapted from jdepoix/youtube-transcript-api and
+ * danielxceron/youtube-transcript.
  */
 export async function fetchTranscript(videoId: string): Promise<TranscriptEntry[]> {
-  // Fetch the YouTube watch page to get caption track info
-  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const response = await fetch(watchUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch video page: ${response.status}`);
+  // Use InnerTube player API with Android client to get caption tracks.
+  // The Android client does not require a PO (Proof of Origin) token,
+  // unlike the WEB client which returns empty timedtext responses.
+  const playerResponse = await fetch(
+    `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_API_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://www.youtube.com",
+        Referer: `https://www.youtube.com/watch?v=${videoId}`,
+        "User-Agent":
+          "com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip",
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: "ANDROID",
+            clientVersion: "20.10.38",
+          },
+        },
+        videoId,
+      }),
+    },
+  );
+
+  if (!playerResponse.ok) {
+    throw new Error(`InnerTube API returned ${playerResponse.status}`);
   }
 
-  const html = await response.text();
+  const playerData = await playerResponse.json();
 
-  // Extract captions JSON from the page
-  const captionsMatch = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})\s*,\s*"/);
-  if (!captionsMatch) {
-    throw new Error("No captions found for this video. The video may not have subtitles enabled.");
+  if (playerData?.playabilityStatus?.status !== "OK") {
+    const reason =
+      playerData?.playabilityStatus?.reason || "unknown reason";
+    throw new Error(`Video is not playable: ${reason}`);
   }
 
-  let captionsData: any;
-  try {
-    // The match might be cut off, try to extract the full JSON object
-    const jsonStr = extractJsonObject(html, html.indexOf('"captions":') + '"captions":'.length);
-    captionsData = JSON.parse(jsonStr);
-  } catch {
-    throw new Error("Failed to parse captions data from video page.");
-  }
-
-  const trackList = captionsData?.playerCaptionsTracklistRenderer?.captionTracks;
+  const trackList =
+    playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
   if (!trackList || trackList.length === 0) {
-    throw new Error("No caption tracks found for this video.");
+    throw new Error(
+      "No captions found for this video. The video may not have subtitles enabled.",
+    );
   }
 
   // Find English track (prefer manual captions over auto-generated)
-  let track = trackList.find((t: any) => t.languageCode === "en" && t.kind !== "asr");
+  let track = trackList.find(
+    (t: any) => t.languageCode === "en" && t.kind !== "asr",
+  );
   if (!track) {
     track = trackList.find((t: any) => t.languageCode === "en");
   }
   if (!track) {
-    // Fall back to first available track
     track = trackList[0];
   }
 
   // Fetch the actual transcript XML
-  const captionUrl = track.baseUrl;
-  const captionResponse = await fetch(captionUrl);
+  const baseUrl = track.baseUrl.replace("&fmt=srv3", "");
+  const captionResponse = await fetch(baseUrl, {
+    headers: {
+      "User-Agent":
+        "com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip",
+    },
+  });
   if (!captionResponse.ok) {
     throw new Error(`Failed to fetch captions: ${captionResponse.status}`);
   }
 
   const xml = await captionResponse.text();
-  return parseTranscriptXml(xml);
-}
-
-/**
- * Extract a JSON object starting at a given position in a string.
- */
-function extractJsonObject(str: string, startIdx: number): string {
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-  let start = -1;
-
-  for (let i = startIdx; i < str.length; i++) {
-    const ch = str[i];
-
-    if (escape) {
-      escape = false;
-      continue;
-    }
-
-    if (ch === "\\") {
-      escape = true;
-      continue;
-    }
-
-    if (ch === '"' && !escape) {
-      inString = !inString;
-      continue;
-    }
-
-    if (inString) continue;
-
-    if (ch === "{") {
-      if (start === -1) start = i;
-      depth++;
-    } else if (ch === "}") {
-      depth--;
-      if (depth === 0) {
-        return str.substring(start, i + 1);
-      }
-    }
+  if (!xml) {
+    throw new Error("Caption endpoint returned empty response.");
   }
 
-  throw new Error("Could not extract JSON object");
+  return parseTranscriptXml(xml);
 }
 
 /**

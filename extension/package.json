@@ -8,7 +8,8 @@
     "test": "npm run build && node test/unit.test.mjs",
     "test:unit": "node test/unit.test.mjs",
     "test:e2e": "node test/context-menu.test.mjs",
-    "test:all": "npm run build && node test/unit.test.mjs && node test/context-menu.test.mjs"
+    "test:integration": "node test/integration.test.mjs",
+    "test:all": "npm run build && node test/unit.test.mjs && node test/context-menu.test.mjs && node test/integration.test.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.287",

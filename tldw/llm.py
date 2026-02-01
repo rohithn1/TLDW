@@ -88,6 +88,8 @@ def call_llm(system: str, user_message: str, model_config: dict) -> str:
         return _call_anthropic(system, user_message, model_config)
     elif provider == "openai":
         return _call_openai(system, user_message, model_config)
+    elif provider == "openrouter":
+        return _call_openrouter(system, user_message, model_config)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -137,6 +139,27 @@ def _call_openai(system: str, user_message: str, model_config: dict) -> str:
         )
     from openai import OpenAI
     client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model=model_config["model"],
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_message},
+        ],
+        max_tokens=4096,
+    )
+    return response.choices[0].message.content
+
+
+def _call_openrouter(system: str, user_message: str, model_config: dict) -> str:
+    """Call OpenRouter API (OpenAI-compatible)."""
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OPENROUTER_API_KEY environment variable is required for OpenRouter models. "
+            "Set it with: export OPENROUTER_API_KEY=your-key-here"
+        )
+    from openai import OpenAI
+    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
     response = client.chat.completions.create(
         model=model_config["model"],
         messages=[
