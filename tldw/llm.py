@@ -1,8 +1,21 @@
 """LLM integration for summarization."""
 
 import json
+import math
 import os
 import subprocess
+
+
+# Approximate max tokens for the transcript portion of the prompt.
+# Reserve ~2000 tokens for system prompt + instructions + response overhead.
+# 1 token ~ 4 chars for English text.
+MODEL_CONTEXT_LIMITS = {
+    "claude-opus-4-5-20251101": 200000,
+    "gpt-5": 128000,
+}
+DEFAULT_CONTEXT_LIMIT = 128000
+RESERVED_TOKENS = 6000  # system prompt + formatting + response
+CHARS_PER_TOKEN = 4
 
 
 SYSTEM_PROMPT = """You are a super chill video summarizer. Your vibe is laid back, friendly, and conversational -- like you're telling a friend about a video you just watched. Keep it real, keep it casual.
@@ -150,6 +163,60 @@ def parse_llm_response(raw: str) -> dict:
     return json.loads(text)
 
 
+def _get_max_transcript_chars(model_config: dict) -> int:
+    """Get the max character count for transcript text given the model's context limit."""
+    model_id = model_config.get("model", "")
+    context_limit = MODEL_CONTEXT_LIMITS.get(model_id, DEFAULT_CONTEXT_LIMIT)
+    available_tokens = context_limit - RESERVED_TOKENS
+    return available_tokens * CHARS_PER_TOKEN
+
+
+def _chunk_entries(entries: list[dict], max_chars: int) -> list[list[dict]]:
+    """Split transcript entries into chunks that fit within the character limit."""
+    chunks = []
+    current_chunk = []
+    current_chars = 0
+
+    for entry in entries:
+        # Estimate the formatted line length: "[M:SS] text\n"
+        line_len = len(f"[{int(entry['start']) // 60}:{int(entry['start']) % 60:02d}] {entry['text']}\n")
+        if current_chars + line_len > max_chars and current_chunk:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_chars = 0
+        current_chunk.append(entry)
+        current_chars += line_len
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
+
+MERGE_SYSTEM_PROMPT = """You are a super chill video summarizer. You will be given multiple partial summaries of different parts of a YouTube video. Merge them into one cohesive summary.
+
+IMPORTANT RULES:
+1. Return your response as valid JSON only -- no markdown, no code fences, no extra text.
+2. Every quote you provide MUST be an EXACT substring taken directly from the partial summaries' quotes. Do not fabricate new quotes.
+3. Keep the best and most relevant sections from each partial summary.
+4. Deduplicate overlapping topics.
+
+Return a JSON object with this exact structure:
+{
+  "one_liner": "A single casual phrase summarizing the whole video",
+  "sections": [
+    {
+      "title": "Section title",
+      "summary": "A chill, detailed summary of this part (2-4 sentences)",
+      "quote": "exact words from a partial summary quote",
+      "timestamp_hint": "rough description of when this happens"
+    }
+  ]
+}
+
+Keep the tone relaxed and conversational throughout."""
+
+
 def summarize_video(
     transcript_entries: list[dict],
     user_prompt: str | None,
@@ -158,20 +225,47 @@ def summarize_video(
 ) -> dict:
     """Run the full summarization pipeline with quote validation.
 
+    If the transcript exceeds the model's context limit, it is chunked and
+    each chunk is summarized separately, then merged into a final summary.
+
     Returns the parsed summary dict with validated quotes and timestamps.
     """
-    transcript_text = build_transcript_text(transcript_entries)
-    prompt = build_prompt(transcript_text, user_prompt)
+    from tldw.transcript import find_quote_timestamp
 
-    raw = call_llm(SYSTEM_PROMPT, prompt, model_config)
-    summary = parse_llm_response(raw)
+    transcript_text = build_transcript_text(transcript_entries)
+    max_chars = _get_max_transcript_chars(model_config)
+
+    # Check if chunking is needed
+    if len(transcript_text) > max_chars:
+        chunks = _chunk_entries(transcript_entries, max_chars)
+        partial_summaries = []
+
+        for idx, chunk in enumerate(chunks):
+            chunk_text = build_transcript_text(chunk)
+            chunk_prompt = build_prompt(chunk_text, user_prompt)
+            raw = call_llm(SYSTEM_PROMPT, chunk_prompt, model_config)
+            partial = parse_llm_response(raw)
+            partial_summaries.append(partial)
+
+        # Merge partial summaries
+        merge_input = json.dumps(partial_summaries, indent=2)
+        merge_prompt = f"Here are {len(partial_summaries)} partial summaries from different parts of the video. Merge them into one cohesive summary:\n\n{merge_input}"
+        if user_prompt:
+            merge_prompt += f'\n\nThe viewer specifically wanted to know: "{user_prompt}". Prioritize content related to this.'
+        merge_prompt += "\n\nReturn ONLY valid JSON."
+
+        raw = call_llm(MERGE_SYSTEM_PROMPT, merge_prompt, model_config)
+        summary = parse_llm_response(raw)
+    else:
+        prompt = build_prompt(transcript_text, user_prompt)
+        raw = call_llm(SYSTEM_PROMPT, prompt, model_config)
+        summary = parse_llm_response(raw)
 
     # Validate quotes against transcript
     for retry in range(max_retries):
         bad_quotes = []
         for section in summary.get("sections", []):
             quote = section.get("quote", "")
-            from tldw.transcript import find_quote_timestamp
             match = find_quote_timestamp(quote, transcript_entries, threshold=0.4)
             if match is None:
                 bad_quotes.append(quote)
@@ -185,7 +279,12 @@ def summarize_video(
         retry_msg = RETRY_PROMPT.format(
             bad_quotes="\n".join(f"- \"{q}\"" for q in bad_quotes)
         )
-        full_retry = f"{prompt}\n\n{retry_msg}"
+        transcript_text_for_retry = build_transcript_text(transcript_entries)
+        # If we chunked, use a truncated version for retry
+        if len(transcript_text_for_retry) > max_chars:
+            transcript_text_for_retry = transcript_text_for_retry[:max_chars]
+        retry_prompt = build_prompt(transcript_text_for_retry, user_prompt)
+        full_retry = f"{retry_prompt}\n\n{retry_msg}"
         raw = call_llm(SYSTEM_PROMPT, full_retry, model_config)
         summary = parse_llm_response(raw)
 
@@ -193,7 +292,6 @@ def summarize_video(
     for section in summary.get("sections", []):
         if "_matched_start" not in section:
             quote = section.get("quote", "")
-            from tldw.transcript import find_quote_timestamp
             match = find_quote_timestamp(quote, transcript_entries, threshold=0.2)
             if match:
                 section["_matched_start"] = match["start"]

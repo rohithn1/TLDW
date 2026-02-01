@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TL;DW Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+    }
+
+    h1 {
+      font-size: 24px;
+      color: #bb86fc;
+      margin-bottom: 8px;
+      font-family: monospace;
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 13px;
+      margin-bottom: 32px;
+    }
+
+    .field {
+      margin-bottom: 20px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .field select,
+    .field input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #3a3a5a;
+      border-radius: 6px;
+      background: #16213e;
+      color: #e0e0e0;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field select:focus,
+    .field input:focus {
+      border-color: #bb86fc;
+    }
+
+    .field .hint {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #bb86fc 0%, #9b59b6 100%);
+      color: #fff;
+    }
+
+    .btn-primary:hover { opacity: 0.9; }
+
+    .saved-msg {
+      display: inline-block;
+      margin-left: 12px;
+      color: #03dac6;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .saved-msg.visible { opacity: 1; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #2a2a4a;
+      margin: 24px 0;
+    }
+
+    .status-section {
+      margin-top: 24px;
+    }
+
+    .status-section h2 {
+      font-size: 16px;
+      color: #e0e0e0;
+      margin-bottom: 12px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.ok { background: #03dac6; }
+    .status-dot.warn { background: #f1c40f; }
+    .status-dot.err { background: #e74c3c; }
+  </style>
+</head>
+<body>
+  <h1>TL;DW</h1>
+  <div class="subtitle">Configure your LLM provider</div>
+
+  <div class="field">
+    <label for="providerSelect">LLM Provider</label>
+    <select id="providerSelect">
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai">OpenAI (GPT)</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="modelSelect">Model</label>
+    <select id="modelSelect">
+      <option value="claude-opus-4-5-20251101">Claude Opus 4 (claude-opus-4-5-20251101)</option>
+      <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (claude-sonnet-4-20250514)</option>
+      <option value="gpt-5">GPT-5</option>
+      <option value="gpt-4o">GPT-4o</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="apiKeyInput">API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-...">
+    <div class="hint">Your API key is stored locally in your browser and never sent anywhere except the LLM provider.</div>
+  </div>
+
+  <div>
+    <button id="saveBtn" class="btn btn-primary">Save Settings</button>
+    <span id="savedMsg" class="saved-msg">Settings saved!</span>
+  </div>
+
+  <hr class="divider">
+
+  <div class="status-section">
+    <h2>Status</h2>
+    <div id="statusItems"></div>
+  </div>
+
+  <script src="options.js" type="module"></script>
+</body>
+</html>

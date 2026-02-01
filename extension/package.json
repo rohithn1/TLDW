@@ -1,0 +1,13 @@
+{
+  "name": "tldw-extension",
+  "version": "0.1.0",
+  "description": "TL;DW - Too Long; Didn't Watch. Summarize YouTube videos from your browser.",
+  "private": true,
+  "scripts": {
+    "build": "tsc && node build.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/chrome": "^0.0.287"
+  }
+}
