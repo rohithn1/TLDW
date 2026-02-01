@@ -9,6 +9,7 @@ import { summarizeVideo, VideoSummary } from "./llm.js";
 // DOM elements
 const setupBanner = document.getElementById("setupBanner") as HTMLDivElement;
 const openOptions = document.getElementById("openOptions") as HTMLAnchorElement;
+const settingsBtn = document.getElementById("settingsBtn") as HTMLButtonElement;
 const inputArea = document.getElementById("inputArea") as HTMLDivElement;
 const urlInput = document.getElementById("urlInput") as HTMLInputElement;
 const promptInput = document.getElementById("promptInput") as HTMLTextAreaElement;
@@ -157,6 +158,11 @@ async function init() {
   // Open options page
   openOptions.addEventListener("click", (e) => {
     e.preventDefault();
+    chrome.runtime.openOptionsPage();
+  });
+
+  // Settings gear icon
+  settingsBtn.addEventListener("click", () => {
     chrome.runtime.openOptionsPage();
   });
 

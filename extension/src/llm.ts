@@ -88,6 +88,8 @@ async function callLLM(
 ): Promise<string> {
   if (config.provider === "anthropic") {
     return callAnthropic(system, userMessage, config);
+  } else if (config.provider === "openrouter") {
+    return callOpenRouter(system, userMessage, config);
   } else {
     return callOpenAI(system, userMessage, config);
   }
@@ -147,6 +149,36 @@ async function callOpenAI(
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`OpenAI API error (${response.status}): ${body}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+async function callOpenRouter(
+  system: string,
+  userMessage: string,
+  config: TLDWConfig
+): Promise<string> {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`OpenRouter API error (${response.status}): ${body}`);
   }
 
   const data = await response.json();

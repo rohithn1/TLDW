@@ -67,6 +67,15 @@
       margin-top: 4px;
     }
 
+    .custom-model-section {
+      display: none;
+      margin-top: 8px;
+    }
+
+    .custom-model-section.visible {
+      display: block;
+    }
+
     .btn {
       display: inline-block;
       padding: 10px 24px;
@@ -85,6 +94,19 @@
 
     .btn-primary:hover { opacity: 0.9; }
 
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #3a3a5a;
+      color: #e0e0e0;
+      margin-left: 8px;
+    }
+
+    .btn-secondary:hover { opacity: 0.9; }
+
     .saved-msg {
       display: inline-block;
       margin-left: 12px;
@@ -95,6 +117,28 @@
     }
 
     .saved-msg.visible { opacity: 1; }
+
+    .error-msg {
+      display: inline-block;
+      margin-left: 12px;
+      color: #e74c3c;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .error-msg.visible { opacity: 1; }
+
+    .validating-msg {
+      display: inline-block;
+      margin-left: 12px;
+      color: #f1c40f;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .validating-msg.visible { opacity: 1; }
 
     .divider {
       border: none;
@@ -139,6 +183,7 @@
   <div class="field">
     <label for="providerSelect">LLM Provider</label>
     <select id="providerSelect">
+      <option value="openrouter">OpenRouter (recommended)</option>
       <option value="anthropic">Anthropic (Claude)</option>
       <option value="openai">OpenAI (GPT)</option>
     </select>
@@ -146,23 +191,31 @@
 
   <div class="field">
     <label for="modelSelect">Model</label>
-    <select id="modelSelect">
-      <option value="claude-opus-4-5-20251101">Claude Opus 4 (claude-opus-4-5-20251101)</option>
-      <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (claude-sonnet-4-20250514)</option>
-      <option value="gpt-5">GPT-5</option>
-      <option value="gpt-4o">GPT-4o</option>
-    </select>
+    <select id="modelSelect"></select>
+    <div class="hint" id="modelHint">Default: google/gemini-3-flash-preview</div>
+  </div>
+
+  <div class="field">
+    <label>
+      <input type="checkbox" id="customModelToggle"> Use custom model
+    </label>
+    <div id="customModelSection" class="custom-model-section">
+      <input type="text" id="customModelInput" placeholder="e.g. google/gemini-2.0-flash" style="margin-top: 8px;">
+      <div class="hint">Enter a model ID in provider/model format. It will be validated before saving.</div>
+    </div>
   </div>
 
   <div class="field">
     <label for="apiKeyInput">API Key</label>
     <input type="password" id="apiKeyInput" placeholder="sk-...">
-    <div class="hint">Your API key is stored locally in your browser and never sent anywhere except the LLM provider.</div>
+    <div class="hint" id="apiKeyHint">Your API key is stored locally in your browser and never sent anywhere except the LLM provider.</div>
   </div>
 
   <div>
     <button id="saveBtn" class="btn btn-primary">Save Settings</button>
     <span id="savedMsg" class="saved-msg">Settings saved!</span>
+    <span id="errorMsg" class="error-msg"></span>
+    <span id="validatingMsg" class="validating-msg">Validating model...</span>
   </div>
 
   <hr class="divider">

@@ -4,10 +4,15 @@
   "description": "TL;DW - Too Long; Didn't Watch. Summarize YouTube videos from your browser.",
   "private": true,
   "scripts": {
-    "build": "tsc && node build.js"
+    "build": "tsc && node build.js",
+    "test": "npm run build && node test/unit.test.mjs",
+    "test:unit": "node test/unit.test.mjs",
+    "test:e2e": "node test/context-menu.test.mjs",
+    "test:all": "npm run build && node test/unit.test.mjs && node test/context-menu.test.mjs"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/chrome": "^0.0.287"
+    "@types/chrome": "^0.0.287",
+    "puppeteer": "^24.36.1",
+    "typescript": "^5.7.0"
   }
 }
